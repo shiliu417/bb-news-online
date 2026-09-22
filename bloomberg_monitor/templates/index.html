@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bloomberg China Monitor | 彭博中国财经资讯监控终端</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="dark-theme">
+    <!-- Top Global Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <span class="logo-bb">BLOOMBERG</span>
+                    <span class="logo-tag">CHINA INTELLIGENCE</span>
+                </div>
+                <div class="system-status">
+                    <span class="status-dot online"></span>
+                    <span id="proxy-status-text">监控就绪 (直连+辛迪加授权源)</span>
+                </div>
+            </div>
+
+            <!-- Stats & Sentiment Ribbon -->
+            <div class="stats-ribbon">
+                <div class="stat-box">
+                    <span class="stat-label">今日资讯</span>
+                    <span class="stat-val" id="stat-total">--</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">中国聚焦</span>
+                    <span class="stat-val highlight" id="stat-china">--</span>
+                </div>
+                <div class="stat-box sentiment-box">
+                    <span class="stat-label">情绪分布</span>
+                    <div class="sentiment-meter">
+                        <span class="sent-tag bullish" id="sent-bull-count" title="利多">🟢 --</span>
+                        <span class="sent-tag neutral" id="sent-neutral-count" title="中性">⚪ --</span>
+                        <span class="sent-tag bearish" id="sent-bear-count" title="利空">🔴 --</span>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">上次同步</span>
+                    <span class="stat-val" id="stat-time">--</span>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="header-actions">
+                <button id="btn-trigger-scrape" class="btn btn-primary" title="立刻检索最新彭博与辛迪加资讯">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>立即抓取最新</span>
+                </button>
+                <button id="btn-mobile" class="btn btn-outline" title="扫码在手机上阅读">
+                    <i class="fa-solid fa-mobile-screen"></i>
+                    <span>手机阅读</span>
+                </button>
+                <div class="dropdown">
+                    <button id="btn-export-dropdown" class="btn btn-outline">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>导出</span>
+                        <i class="fa-solid fa-chevron-down" style="font-size:0.7rem;"></i>
+                    </button>
+                    <div class="dropdown-menu" id="export-menu">
+                        <a href="/api/export?format=markdown" class="dropdown-item"><i class="fa-brands fa-markdown"></i> Markdown 格式 (.md)</a>
+                        <a href="/api/export?format=csv" class="dropdown-item"><i class="fa-solid fa-file-csv"></i> Excel 表格 (.csv)</a>
+                        <a href="/feed.xml" target="_blank" class="dropdown-item"><i class="fa-solid fa-rss"></i> RSS 移动订阅源</a>
+                        <a href="/api/export?format=json" target="_blank" class="dropdown-item"><i class="fa-solid fa-code"></i> JSON 数据接口</a>
+                    </div>
+                </div>
+                <button id="btn-auto-refresh" class="btn btn-outline" title="自动刷新">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span id="auto-refresh-label">轮询: 关</span>
+                </button>
+                <button id="btn-settings" class="btn btn-icon" title="系统与网络设置">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sub-Navbar Categories -->
+    <nav class="category-nav">
+        <div class="nav-container">
+            <ul class="category-tabs" id="category-tabs">
+                <li class="tab-item active" data-cat="">全部资讯 <span class="badge-count" id="count-all">0</span></li>
+                <li class="tab-item" data-cat="宏观政策"><i class="fa-solid fa-landmark"></i> 宏观政策 <span class="badge-count" id="count-macro">0</span></li>
+                <li class="tab-item" data-cat="贸易关税"><i class="fa-solid fa-scale-balanced"></i> 贸易关税 <span class="badge-count" id="count-trade">0</span></li>
+                <li class="tab-item" data-cat="科技半导体"><i class="fa-solid fa-microchip"></i> 科技半导体 <span class="badge-count" id="count-tech">0</span></li>
+                <li class="tab-item" data-cat="金融外汇"><i class="fa-solid fa-chart-line"></i> 金融外汇 <span class="badge-count" id="count-finance">0</span></li>
+                <li class="tab-item" data-cat="房产消费"><i class="fa-solid fa-city"></i> 房产消费 <span class="badge-count" id="count-property">0</span></li>
+                <li class="tab-item" data-cat="大宗商品"><i class="fa-solid fa-cubes-stacked"></i> 大宗商品 <span class="badge-count" id="count-commodity">0</span></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="main-container">
+        <!-- Filter and Search Toolbar -->
+        <div class="toolbar-card">
+            <div class="search-group">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="search-input" placeholder="在标题、摘要或关键词中搜索（如：芯片、关税、人民币、阿里巴巴、外贸）..." autocomplete="off">
+                <button id="btn-clear-search" class="clear-search-btn" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="filter-controls">
+                <div class="filter-item">
+                    <label>市场情绪：</label>
+                    <select id="filter-sentiment">
+                        <option value="">全部情绪</option>
+                        <option value="利多">利多 🟢</option>
+                        <option value="利空">利空 🔴</option>
+                        <option value="中性">中性 ⚪</option>
+                    </select>
+                </div>
+
+                <div class="filter-item checkbox-item">
+                    <input type="checkbox" id="toggle-english" checked>
+                    <label for="toggle-english">英文原题</label>
+                </div>
+
+                <div class="filter-item checkbox-item">
+                    <input type="checkbox" id="toggle-china-only" checked>
+                    <label for="toggle-china-only">精选中国焦点</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scraping Progress Alert Bar -->
+        <div id="scrape-progress-banner" class="progress-banner" style="display: none;">
+            <div class="spinner"></div>
+            <span class="progress-text">正在自动化抓取授权转载与辛迪加新闻，并执行专业中文金融分析...</span>
+        </div>
+
+        <!-- News Feed Grid -->
+        <div class="news-grid" id="news-grid">
+            <div class="loading-placeholder">
+                <div class="spinner"></div>
+                <p>正在载入实时财经数据...</p>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar" id="pagination-bar" style="display: none;">
+            <button id="btn-prev-page" class="btn btn-outline btn-sm"><i class="fa-solid fa-chevron-left"></i> 上一页</button>
+            <span id="page-indicator" class="page-indicator">第 1 页 / 共 1 页</span>
+            <button id="btn-next-page" class="btn btn-outline btn-sm">下一页 <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+    </main>
+
+    <!-- Article Reader Modal -->
+    <div class="modal-backdrop" id="article-modal" style="display: none;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <div class="modal-tags">
+                    <span id="modal-category" class="tag-badge">宏观政策</span>
+                    <span id="modal-sentiment" class="sentiment-pill neutral">中性</span>
+                    <span id="modal-source" class="source-pill">Bloomberg 授权源</span>
+                </div>
+                <div class="modal-header-actions">
+                    <button class="btn-text-action" id="btn-copy-modal" title="复制中文摘要"><i class="fa-regular fa-copy"></i> 复制</button>
+                    <button class="modal-close-btn" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <h2 id="modal-title-zh" class="modal-title">--</h2>
+                <div id="modal-title-en" class="modal-subtitle">--</div>
+                
+                <div class="modal-meta">
+                    <span><i class="fa-regular fa-clock"></i> <span id="modal-date">--</span></span>
+                    <a id="modal-external-link" href="#" target="_blank" class="external-link-btn">
+                        <span>访问原报道出处</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- Key Takeaways Card -->
+                <div class="key-points-box" id="modal-key-points-box">
+                    <h4><i class="fa-solid fa-lightbulb"></i> 核心看点精炼</h4>
+                    <ul id="modal-key-points-list"></ul>
+                </div>
+
+                <!-- Full Summary & Content -->
+                <div class="content-section">
+                    <h4><i class="fa-solid fa-file-lines"></i> 详细中文解读与综述</h4>
+                    <div id="modal-content-zh" class="article-paragraphs"></div>
+                </div>
+
+                <div class="content-section" id="modal-content-en-section" style="display: none;">
+                    <h4><i class="fa-solid fa-language"></i> 英文原稿比对</h4>
+                    <div id="modal-content-en" class="article-paragraphs english-text"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-fetch-full-text" class="btn btn-outline">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                    <span>抓取全文段落</span>
+                </button>
+                <button class="btn btn-primary" onclick="document.getElementById('article-modal').style.display='none'">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile QR Modal -->
+    <div class="modal-backdrop" id="mobile-modal" style="display: none;">
+        <div class="modal-dialog" style="max-width: 440px; text-align: center;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-mobile-screen"></i> 手机扫码阅读</h3>
+                <button class="modal-close-btn" id="mobile-close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="align-items: center; gap: 1rem;">
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+                    手机连接与电脑相同的 <b>Wi-Fi 或局域网</b>，使用<b>手机微信、相机或浏览器</b>扫描二维码：
+                </p>
+                <div style="background: white; padding: 12px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                    <img id="qr-img" src="/api/qrcode" alt="手机扫码阅读" style="width: 210px; height: 210px; display: block;">
+                </div>
+                <div style="margin-top: 0.4rem;">
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">或在手机浏览器中直接输入：</p>
+                    <a id="mobile-url-link" href="#" target="_blank" style="color: var(--bb-orange); font-family: var(--font-mono); font-weight: bold; font-size: 1.1rem; text-decoration: underline;">--</a>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; background: rgba(255,255,255,0.04); padding: 10px 14px; border-radius: 6px; width: 100%; text-align: left;">
+                    <i class="fa-solid fa-rss" style="color: var(--bb-orange);"></i> <b>进阶订阅：</b>如果您手机安装了 RSS 阅读器（如 Follow、NetNewsWire、Feedly），可直接添加订阅源：<br>
+                    <code id="mobile-rss-link" style="color: var(--bb-blue); font-family: var(--font-mono);">--</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-backdrop" id="settings-modal" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-sliders"></i> 系统与网络配置</h3>
+                <button class="modal-close-btn" id="settings-close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>本地代理地址 (HTTP/SOCKS5):</label>
+                    <input type="text" id="setting-proxy" class="form-control" placeholder="http://127.0.0.1:7897">
+                    <small class="form-hint">已自动检测本地可用代理端口，直连与代理双通道自适应。</small>
+                </div>
+                <div class="form-group">
+                    <label>后台自动定时抓取周期 (分钟):</label>
+                    <input type="number" id="setting-interval" class="form-control" min="5" max="1440" value="30">
+                </div>
+                <hr class="divider">
+                <div class="form-group">
+                    <label>大模型 AI 深度摘要 (可选):</label>
+                    <input type="password" id="setting-ai-key" class="form-control" placeholder="sk-...">
+                    <small class="form-hint">默认开箱即用 100% 免费翻译。如填入 DeepSeek / OpenAI / Gemini Key，可启用 AI 宏观研究级深度归纳。</small>
+                </div>
+                <div class="form-group">
+                    <label>AI API Base URL (可选):</label>
+                    <input type="text" id="setting-ai-url" class="form-control" placeholder="https://api.deepseek.com/v1">
+                </div>
+                <div class="form-group">
+                    <label>AI 模型名称 (可选):</label>
+                    <input type="text" id="setting-ai-model" class="form-control" placeholder="deepseek-chat 或 gpt-4o-mini">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="document.getElementById('settings-modal').style.display='none'">取消</button>
+                <button id="btn-save-settings" class="btn btn-primary">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast-popup"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
